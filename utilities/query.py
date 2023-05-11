@@ -1,13 +1,15 @@
 import json
-
-from client import oauth
-from typing import Union, Optional, List, Dict
-from pathlib import Path
 import logging.config
-import settings
-from utilities.funtions import get_path_after_keyword, validate_path, get_email, get_budget_name
+from pathlib import Path
+from typing import Union, Optional, List, Dict, Tuple
+
 import requests
-from requests import Request, Response
+from requests import Response
+
+import settings
+from client import oauth
+from utilities.funtions import get_path_after_keyword, validate_path, get_email, get_budget_name
+from utilities.decorators import validate_on_folder_created_input
 
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
@@ -41,12 +43,18 @@ def create_folder(name: str, budget_id: str, email: str, parent: Optional[str] =
         "parent_folder": parent,
         "email": email
     })
-    return post(relative_url='/storages/folder/create_folder_with_email/', payload=payload)
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    return post(relative_url='/storages/folder/create_folder_with_email/', data=payload, headers=headers)
 
 
 def patch_folder(data: dict, **kwargs):
     payload = json.dumps(data)
-    return patch(relative_url='/storages/folder/create_folder_with_email/', payload=payload)
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    return patch(relative_url='/storages/folder/create_folder_with_email/', data=payload, headers=headers)
 
 
 def folder_already_exists(path: Union[str, Path], is_src_path: bool = True) -> bool:
@@ -67,7 +75,27 @@ def folder_already_exists(path: Union[str, Path], is_src_path: bool = True) -> b
     return False
 
 
-def find_folder(path: Union[str, Path], **kwargs) -> List[Optional[str]]:
+def find_folder(path: Union[str, Path], **kwargs) -> Optional[str]:
+    """
+    This function attempts to locate a specific folder based on the provided path and optional keyword.
+
+    Args:
+    path (Union[str, Path]): The original path where the folder is to be found.
+    **kwargs: Arbitrary keyword arguments.
+    - is_src_path (bool, optional): If True, the function will get the path after a specified keyword. Default is True.
+    - keyword (str, optional): The keyword used to trim the original path if is_src_path is True. Default is
+    "mofreitas".
+
+    Returns: List[Optional[str]]: If a folder(s) is found, the function returns a list of folder IDs. If no folder is
+    found or an error occurs, an empty list is returned.
+
+    Raises:
+    requests.RequestException: If the status code of the server's response is not 200, an exception is raised.
+
+    Notes:
+    This function operates in conjunction with the '/storages/folder/' endpoint of the server and is part of a larger
+    script that provides functionality for manipulating folders within a storage system.
+    """
     is_src_path: bool = kwargs.get('is_src_path', True)
     keyword: str = kwargs.get('keyword', "mofreitas")
     if is_src_path:
@@ -80,94 +108,117 @@ def find_folder(path: Union[str, Path], **kwargs) -> List[Optional[str]]:
             logger.error(msg)
             raise requests.RequestException(msg)
         count = response.json().get('count')
-        results: List[Optional[Dict]] = response.json().grt('results')
+        results: List[Optional[Dict]] = response.json().get('results')
         assert isinstance(count, int)
-        if count != 0:
-            return [obj.get('id') for obj in results]
+        if count != 0 and results:
+            return results[0].get('id')
     except Exception as error:
         logger.error(f"Error: {error}")
-    return []
+    return None
 
 
-def find_parent_folder(path: Union[str, Path], **kwargs) -> Optional[Path]:
+def find_parent_folder(path: Union[str, Path], email: str, **kwargs) -> Optional[Tuple[Path, str]]:
     is_src_path: bool = kwargs.get('is_src_path', True)
-    keyword: str = kwargs.get('keyword', "mofreitas")
     path: Path = validate_path(path)
+    reference_path = Path(settings.PATH_REFERENCE).joinpath(email)
     if is_src_path:
+        keyword: str = kwargs.get('keyword', "mofreitas")
         path: Path = get_path_after_keyword(path, keyword=keyword)
-    parent_path = path.parent
-    folders = find_folder(path, is_src_path=False)
-    if folders:
-        return path.parent
+    parent: Optional[str] = find_folder(path.parent, is_src_path=False)
+    if parent:
+        return path.parent, parent
     else:
-        if parent_path == path:
+        if path.parent == reference_path:
             return None
         else:
-            return find_parent_folder(path=parent_path)
+            return find_parent_folder(path=path.parent, email=email, is_src_path=True)
 
 
-def process_folder(src_path: Union[str, Path], keyword: str = "mofreitas"):
+def update_name(path: Path) -> bool:
+    resp: Response = patch_folder(data=dict(name=path.name))
+    if resp.status_code == 200:
+        logger.info(f"Successfully updated the folder '{path.name}'.")
+        return True
+    logger.error(f"Fail to update the folder '{path.name}'.")
+    return False
+
+
+@validate_on_folder_created_input
+def on_folder_updated(src_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
+    """
+    Function to handle the process of updating a folder's name in a directory structure. If the parent folder or the
+    target folder does not exist, it falls back to the on_folder_created function to create the necessary folders.
+
+    Args:
+        src_path (Union[str, Path]): The source path of the folder to be updated.
+        keyword (str, optional): A keyword used to parse the src_path, default is "mofreitas".
+
+    Returns:
+        bool: True if the folder name is successfully updated or the necessary folders are created, False otherwise.
+
+    Raises:
+        Any exceptions raised by the underlying functions (get_path_after_keyword, get_email, find_parent_folder,
+        folder_already_exists, on_folder_created, update_name) are not caught by this function.
+    """
     path: Path = get_path_after_keyword(path=src_path, keyword=keyword)
-    valid_parent_folder_path = find_parent_folder(path=path, keyword=keyword)
+    email = get_email(src_path)
+    parent_path_and_id = find_parent_folder(path=path, keyword=keyword, email=email)
+    # If parent does not exist or the folder itself does not exist, create the folder(s)
+    if parent_path_and_id is None or not folder_already_exists(path):
+        return on_folder_created(src_path=src_path)
+    # Otherwise, update the name of the existing folder
+    return update_name(path)
+
+
+@validate_on_folder_created_input
+def on_folder_created(src_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
+    """
+    Function to handle the process of creating a folder in a directory structure.
+    If the parent folder does not exist, it generates a directory with an undefined parent entity.
+    The function proceeds to create the necessary child folders starting from the parent to the child.
+
+    Args:
+        src_path (Union[str, Path]): The source path of the folder to be created.
+        keyword (str, optional): A keyword used to parse the src_path, default is "mofreitas".
+
+    Returns:
+        bool: True if the necessary folders are successfully created, False otherwise.
+
+    Raises:
+        Any exceptions raised by the underlying functions (get_path_after_keyword, get_email, find_parent_folder,
+        create_folder, folder_already_exists) are not caught by this function.
+    """
+    path: Path = get_path_after_keyword(path=src_path, keyword=keyword)
     email = get_email(src_path)
     budget = get_budget_name(src_path)
+    parent_path_and_id = find_parent_folder(path=path, keyword=keyword, email=email)
 
-    if valid_parent_folder_path == path.parent:
-        if folder_already_exists(path, is_src_path=False):
-            response: Response = patch_folder(data=dict(name=path.name))
-            if response.status_code == 200:
-                logger.info(f"Successfully updated the folder '{path.name}'.")
-
+    if parent_path_and_id is None:
+        logger.info(f"System has been unable to identify a valid parent directory. It will now endeavor to generate"
+                    f" a directory with an undefined parent entity.")
+        name = path.parts[path.parts.index(email) + 1]
+        resp: Response = create_folder(name=name, budget_id=budget, parent=None, email=email)
+        if resp.status_code == 201:
+            logger.info(f"Successfully created the folder '{name}'.")
+            return on_folder_created(src_path, keyword)
         else:
-            parent_folder: List[Optional[str]] = find_folder(path=path, is_src_path=False)
-            if parent_folder:
-                response: Response = create_folder(name=path.name, budget_id=budget, email=email)
-                if response.status_code == 201:
-                    logger.info(f"Successfully created the folder '{path.name}'.")
-                else:
-                    logger.error(f"Error encountered while attempting to create the folder '{path.name}'.")
+            logger.error(f"Error encountered while attempting to create the folder '{name}'. {resp.text}")
+            return False
+
+        # Create list of paths starting from parent to child
+    paths_to_create = [parent_path_and_id[0] / part for part in path.relative_to(parent_path_and_id[0]).parts]
+
+    for current_path in paths_to_create:
+        if not folder_already_exists(current_path):
+            resp: Response = create_folder(name=current_path.name, budget_id=budget, email=email,
+                                           parent=parent_path_and_id[1])
+            if resp.status_code == 201:
+                logger.info(f"Successfully created the folder '{current_path.name}'.")
+                # update parent_path_and_id for the new parent
+                parent_path_and_id = (current_path, resp.json().get('id'))
             else:
-                logger.error(f"Error encountered while attempting to find the parent folder '{path.parent.name}'.")
+                logger.error(
+                    f"Error encountered while attempting to create the folder '{current_path.name}'. {resp.text}")
+                return False
 
-    # If the parent folder is not found, create it
-    if parent_folder is None:
-        # Create the parent folder using the root user as owner and budget 'None'
-        parent_folder = Folder.objects.create(folder_name=path.parts[0], user=User.objects.get(email='root'),
-                                              budget=None)
-
-    # Get a list of existing folders in the path
-    existing_folders = find_folder(path=path, keyword=keyword)
-
-    # Iterate through the path and create any missing folders
-    for i in range(len(path.parts)):
-        folder_path = Path(*path.parts[:i + 1])
-        if folder_path not in existing_folders:
-            # Create the folder
-            folder_name = folder_path.parts[-1]
-            budget = parent_folder.budget  # inherit budget from parent folder
-            folder = Folder.objects.create(folder_name=folder_name, parent_folder=parent_folder,
-                                           user=parent_folder.user, budget=budget)
-
-            # Add the new folder to the list of existing folders
-            existing_folders.append(folder_path)
-
-        # Update the parent folder for the next iteration
-        parent_folder = Folder.objects.get(path=str(folder_path))
-
-    return str(path)
-
-# def get_file_id(owner_email: str, project_id: str, file_name: Union[str, Path], ) -> Optional[str]:
-#     logger.debug(f"received data: \n owner email: {owner_email}\n project_id: {project_id}\n category: {category}")
-#     url = settings.URL + f"/storages/{category}/"
-#     response = requests.request('GET', url, params=dict(project=project_id, owner__email=owner_email,
-#                                                         filename=file_name), auth=oauth)
-#     if response.status_code == 400:
-#         logger.error(f"received the response: {response.status_code}")
-#         logger.error(f"received the response: {response.json()}")
-#     elif response.status_code == 200:
-#         logger.debug(f"received the response: {response.status_code}")
-#         logger.debug(f"received the response: {response.json()}")
-#         if response.json().get('results'):
-#             return response.json().get('results')[0].get('id')
-#     logger.debug(f"received the response: {response.status_code}")
-#     logger.debug(f"received the response: {response.json()}")
+    return True

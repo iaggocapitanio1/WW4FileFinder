@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 NUM_WORKER_THREADS = int(os.environ.get("NUM_WORKER_THREADS", 4))
 
+PATH_REFERENCE = "mofreitas/clientes/"
 
 CLIENT_ID = os.environ.get("CLIENT_ID", "")
 

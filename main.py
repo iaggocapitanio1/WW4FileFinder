@@ -8,7 +8,7 @@ from watchdog.observers import Observer
 
 import settings
 from utilities.funtions import get_path_after_keyword
-from utilities.query import folder_already_exists
+from utilities.query import process_folder
 
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class EventHandler(FileSystemEventHandler):
         from pathlib import Path
         if event.is_directory:
             logger.info(f"Folder created: {Path(event.src_path).name}")
-            folder_already_exists(path=event.src_path)
+            process_folder(src_path=event.src_path)
         else:
             logger.info(f"File creation event triggered!")
 
