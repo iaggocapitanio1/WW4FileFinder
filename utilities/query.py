@@ -57,6 +57,7 @@ def post(relative_url, params=None, **kwargs) -> Response:
 def patch(relative_url, pk: str, params=None, **kwargs) -> Response:
     if params is None:
         params = dict()
+
     url = parse.urljoin(ends_with_slash(settings.URL),
                         normalize_relative_url(relative_url) + ends_with_slash(pk.__str__()))
     return requests.patch(url, auth=oauth, params=params, **kwargs)
@@ -71,9 +72,9 @@ def delete(relative_url, pk, params=None, **kwargs):
 
 def create_folder(name: str, budget_id: str, email: str, parent: Optional[str] = None) -> Response:
     payload = json.dumps({
-        "folder_name": name,
+        "name": name,
         "budget": budget_id,
-        "parent_folder": parent,
+        "parent": parent,
         "email": email
     })
     headers = {
@@ -171,11 +172,13 @@ def update_folder_name(old_path: Path, new_path: Path) -> bool:
     folder_pk = find_folder(old_path)
     if folder_pk is None:
         return on_folder_created(old_path)
-    resp: Response = patch_folder(data=dict(folder_name=new_path.name), pk=folder_pk)
+    resp: Response = patch_folder(data=dict(name=new_path.name), pk=folder_pk)
     if resp.status_code == 200:
         logger.info(f"Successfully updated the folder '{new_path.name}'.")
         return True
-    logger.error(f"Fail to update the folder '{new_path.name}'.")
+    logger.error(f"Fail to update the folder '{old_path.name}' to '{new_path.name}' with pk '{folder_pk}'.")
+    if resp.content:
+        logger.error(resp.content)
     return False
 
 
@@ -184,7 +187,7 @@ def update_folder(folder_targe_new_parent_pk: Optional[str], folder_target_old_p
     if folder_pk is None:
         logger.error(f"Fail to find the folder '{folder_target_old_path}'.")
         return False
-    data = dict(folder_parent=folder_targe_new_parent_pk)
+    data = dict(parent=folder_targe_new_parent_pk)
     resp: Response = patch_folder(data=data, pk=folder_pk)
     if resp.status_code == 200:
         logger.info(f"Successfully updated the folder '{folder_pk}' to parent {folder_targe_new_parent_pk}.")
@@ -220,7 +223,11 @@ def on_folder_updated(src_path: Union[str, Path], dest_path: Union[str, Path], k
 
     # If parent does not exist or the folder itself does not exist, create the folder(s)
     if old_parent_path_and_id is None or not folder_already_exists(old_path):
-        on_folder_created(src_path=old_path)
+        success = on_folder_created(src_path=old_path)
+        if not success:
+            logger.error(f"It's impossible to sync folder '{new_parent_path_and_id[0].name}'")
+            return False
+
         return on_folder_updated(src_path=old_path, dest_path=new_path)
 
     if new_parent_path_and_id is None or not folder_already_exists(new_parent_path_and_id[0]):
@@ -231,23 +238,27 @@ def on_folder_updated(src_path: Union[str, Path], dest_path: Union[str, Path], k
     # Check if the folder name has changed
 
     try:
-        if os.path.commonpath([old_path, new_path]) != new_path.parent:
+        if os.path.commonpath([old_path, new_path]) != new_path.parent.__str__():
             # Find the point of divergence
             diverging_folder = Path(os.path.relpath(new_path, os.path.commonpath([old_path, new_path]))).parts[0]
-            old_path_diverging_folder = Path(*old_path.parts[:old_path.parts.index('Premier bâtiment 2')+1]).__str__()
+            old_path_diverging_folder = Path(*old_path.parts[:old_path.parts.index('Premier bâtiment 2') + 1]).__str__()
             # Find the new parent folder and its id
             new_parent_path_and_id = find_parent_folder(path=Path(os.path.join(new_path.parent, diverging_folder)),
                                                         keyword=keyword, email=email)
             if new_parent_path_and_id is None or not folder_already_exists(new_parent_path_and_id[0]):
-                on_folder_created(src_path=new_parent_path_and_id[0])
+                success = on_folder_created(src_path=new_parent_path_and_id[0])
+                if not success:
+                    logger.error(f"It's impossible to sync folder '{new_parent_path_and_id[0].name}'")
+                    return False
                 return on_folder_updated(src_path=old_path, dest_path=new_path)
             return update_folder(folder_targe_new_parent_pk=new_parent_path_and_id[1],
                                  folder_target_old_path=old_path_diverging_folder)
         else:
             name_changed = old_path.name != new_path.name
+            logger.info(f"name_changed: '{name_changed}'.")
             if name_changed:
+                logger.info(f"Trying to update just the folder name '{old_path.name}' to '{new_path.name}' ")
                 return update_folder_name(old_path, new_path)
-
 
     except Exception as error:
         logger.error(f"Fail to update the folder '{error}'.")

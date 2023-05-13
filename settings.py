@@ -54,8 +54,24 @@ LOGGER = {
             ],
             "propagate": True
         },
+        "utilities.query": {
+            "level": "DEBUG",
+            "handlers": [
+                "console",
+                "file"
+            ],
+            "propagate": True
+        },
+        "utilities.functions": {
+            "level": "DEBUG",
+            "handlers": [
+                "console",
+                "file"
+            ],
+            "propagate": True
+        },
         "__main__": {
-            "level": "INFO",
+            "level": "DEBUG",
             "handlers": [
                 "console",
                 "file"
