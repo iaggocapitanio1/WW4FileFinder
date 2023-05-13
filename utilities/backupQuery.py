@@ -16,45 +16,58 @@ from utilities.funtions import get_path_after_keyword, validate_path, get_email,
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
 
-session = requests.Session()
-session.auth = oauth
-
 
 def ends_with_slash(url: str) -> str:
-    return url if url.endswith('/') else url + '/'
+    if not url.endswith('/'):
+        url += '/'
+    return url
 
 
 def remove_leading_slash(s: str) -> str:
+    """
+    Removes the leading slash from a string if it exists.
+
+    Args:
+        s (str): The input string.
+
+    Returns:
+        str: The input string with the leading slash removed if it existed, otherwise the original string.
+    """
     return s[1:] if s.startswith('/') else s
 
 
 def normalize_relative_url(relative_url: str) -> str:
-    return remove_leading_slash(ends_with_slash(relative_url))
-
-
-def make_request(method: str, relative_url: str, pk: str = None, params=None, **kwargs) -> Response:
-    if params is None:
-        params = dict()
-    url = parse.urljoin(ends_with_slash(settings.URL), normalize_relative_url(relative_url))
-    if pk:
-        url += ends_with_slash(pk.__str__())
-    return session.request(method, url, params=params, **kwargs)
+    return remove_leading_slash(ends_with_slash(url=relative_url))
 
 
 def get(relative_url, params=None) -> Response:
-    return make_request('GET', relative_url, params=params)
+    if params is None:
+        params = dict()
+    url = parse.urljoin(ends_with_slash(settings.URL), normalize_relative_url(relative_url))
+    return requests.get(url, auth=oauth, params=params)
 
 
 def post(relative_url, params=None, **kwargs) -> Response:
-    return make_request('POST', relative_url, params=params, **kwargs)
+    if params is None:
+        params = dict()
+    url = parse.urljoin(ends_with_slash(settings.URL), normalize_relative_url(relative_url))
+    return requests.post(url, auth=oauth, params=params, **kwargs)
 
 
 def patch(relative_url, pk: str, params=None, **kwargs) -> Response:
-    return make_request('PATCH', relative_url, pk=pk, params=params, **kwargs)
+    if params is None:
+        params = dict()
+
+    url = parse.urljoin(ends_with_slash(settings.URL),
+                        normalize_relative_url(relative_url) + ends_with_slash(pk.__str__()))
+    return requests.patch(url, auth=oauth, params=params, **kwargs)
 
 
 def delete(relative_url, pk, params=None, **kwargs):
-    return make_request('DELETE', relative_url, pk=pk, params=params, **kwargs)
+    if params is None:
+        params = dict()
+    url = parse.urljoin(ends_with_slash(settings.URL),
+                        normalize_relative_url(relative_url) + ends_with_slash(pk.__str__()))
 
 
 def create_folder(name: str, budget_id: str, email: str, parent: Optional[str] = None) -> Response:
@@ -169,42 +182,6 @@ def update_folder_name(old_path: Path, new_path: Path) -> bool:
     return False
 
 
-def delete_folder(path: Path):
-    folder_pk = find_folder(path)
-    if not folder_pk:
-        logger.error(f"Unable to find folder '{path.name}' with pk '{folder_pk}'."
-                     f" Deletion process cannot be initiated.")
-        return False
-    res = delete(relative_url='/storages/folder/', pk=folder_pk)
-    if res.status_code == 204:
-        logger.info(f"Folder '{path}' successfully deleted.")
-    else:
-        logger.error(f"Deletion failed for folder '{path}'.")
-        return False
-
-
-@validate_on_folder_input
-def on_folder_deleted(src_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
-    """
-    Function to handle the process of deleting a folder in a directory structure.
-    If the folder does not exist, an error message is logged and the function returns False.
-    If the folder exists, it is deleted.
-
-    Args:
-        src_path (Union[str, Path]): The source path of the folder to be deleted.
-        keyword (str, optional): A keyword used to parse the src_path, default is "mofreitas".
-
-    Returns:
-        bool: True if the folder is successfully deleted, False otherwise.
-
-    Raises:
-        Any exceptions raised by the underlying functions (get_path_after_keyword, get_email, find_parent_folder,
-        folder_already_exists, delete_folder) are not caught by this function.
-    """
-    path: Path = get_path_after_keyword(path=src_path, keyword=keyword)
-    return delete_folder(path)
-
-
 def update_folder(folder_targe_new_parent_pk: Optional[str], folder_target_old_path: str) -> bool:
     folder_pk = find_folder(folder_target_old_path)
     if folder_pk is None:
@@ -219,7 +196,6 @@ def update_folder(folder_targe_new_parent_pk: Optional[str], folder_target_old_p
     return False
 
 
-# noinspection PyUnresolvedReferences
 @validate_on_folder_input
 def on_folder_updated(src_path: Union[str, Path], dest_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
     """
@@ -341,3 +317,32 @@ def on_folder_created(src_path: Union[str, Path], keyword: str = "mofreitas") ->
                 return False
 
     return True
+
+
+@validate_on_folder_input
+def on_folder_deleted(src_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
+    """
+    Function to handle the process of deleting a folder in a directory structure.
+    If the folder does not exist, an error message is logged and the function returns False.
+    If the folder exists, it is deleted.
+
+    Args:
+        src_path (Union[str, Path]): The source path of the folder to be deleted.
+        keyword (str, optional): A keyword used to parse the src_path, default is "mofreitas".
+
+    Returns:
+        bool: True if the folder is successfully deleted, False otherwise.
+
+    Raises:
+        Any exceptions raised by the underlying functions (get_path_after_keyword, get_email, find_parent_folder,
+        folder_already_exists, delete_folder) are not caught by this function.
+    """
+    path: Path = get_path_after_keyword(path=src_path, keyword=keyword)
+    email = get_email(src_path)
+    parent_path_and_id = find_parent_folder(path=path, keyword=keyword, email=email)
+
+    if parent_path_and_id is None or not folder_already_exists(path):
+        logger.error(f"Folder '{path.name}' does not exist.")
+        return False
+    else:
+        return delete_folder(path)

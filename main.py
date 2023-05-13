@@ -7,7 +7,6 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 import settings
-from utilities.funtions import get_path_after_keyword
 from utilities.query import on_folder_created
 
 logging.config.dictConfig(settings.LOGGER)
