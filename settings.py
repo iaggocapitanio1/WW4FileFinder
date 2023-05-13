@@ -70,6 +70,22 @@ LOGGER = {
             ],
             "propagate": True
         },
+        "utilities.folders": {
+            "level": "DEBUG",
+            "handlers": [
+                "console",
+                "file"
+            ],
+            "propagate": True
+        },
+        "utilities.files": {
+            "level": "DEBUG",
+            "handlers": [
+                "console",
+                "file"
+            ],
+            "propagate": True
+        },
         "__main__": {
             "level": "DEBUG",
             "handlers": [

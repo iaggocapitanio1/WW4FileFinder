@@ -7,7 +7,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 import settings
-from utilities.query import on_folder_created
+from utilities.folders import on_folder_created
 
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class EventHandler(FileSystemEventHandler):
             logger.info(f"Folder created: {Path(event.src_path).name}")
             on_folder_created(src_path=event.src_path)
         else:
-            logger.info(f"File creation event triggered!")
+            logger.info(f"File creation event triggered! {event.src_path}")
 
         event_queue.put(('created', event))
 
@@ -37,7 +37,8 @@ class EventHandler(FileSystemEventHandler):
             old_name = Path(event.src_path).name
             new_name = Path(event.dest_path).name
             logger.info(f"Folder has been renamed from '{old_name}' to '{new_name}'")
-            # Call your function to handle folder renaming here, e.g., on_folder_renamed(event.src_path, event.dest_path)
+            # Call your function to handle folder renaming here, e.g., on_folder_renamed(event.src_path,
+            # event.dest_path)
         else:
             logger.info(f"File has been moved from '{event.src_path}' to '{event.dest_path}'")
         event_queue.put(('moved', event))
