@@ -148,12 +148,12 @@ def on_file_created(src_path: Union[str, Path], keyword: str = 'mofreitas') -> b
     return create_file(file_path=src_path)
 
 
-def on_file_update(src_path: Union[str, Path], dest_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
+def on_file_updated(src_path: Union[str, Path], dest_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
     src_path = validate_path(src_path)
     dest_path = validate_path(dest_path)
     return patch_file(src_path=src_path, dest_path=dest_path)
 
 
-def on_file_delete(src_path: Union[str, Path]) -> bool:
+def on_file_deleted(src_path: Union[str, Path]) -> bool:
     src_path = validate_path(src_path)
     return delete_file(path=src_path)
