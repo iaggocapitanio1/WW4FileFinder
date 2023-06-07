@@ -1,4 +1,3 @@
-
 import logging.config
 
 from urllib import parse
@@ -9,12 +8,22 @@ from requests import Response
 import settings
 from client import oauth
 
-
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
 
 session = requests.Session()
 session.auth = oauth
+
+
+def test_connection() -> bool:
+    try:
+        response = session.get(ends_with_slash(settings.URL))
+        response.raise_for_status()  # raise an exception if the status code is not 200
+        logger.info('Connection succeeded.')
+        return True
+    except requests.exceptions.HTTPError as err:
+        logger.error(f'Connection failed: {err}')
+        return False
 
 
 def ends_with_slash(url: str) -> str:

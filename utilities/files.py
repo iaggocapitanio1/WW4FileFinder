@@ -16,8 +16,9 @@ logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
 
 
-def create_file(file_path: Path) -> bool:
+def create_file(file_path: Path, keyword: str = "mofreitas" ) -> bool:
     file_path = validate_path(file_path)
+    # file_path = get_path_after_keyword(file_path, keyword)
     try:
         folder_pk = find_folder(file_path.parent)
         if not folder_pk:
@@ -107,6 +108,8 @@ def find_file(file_path: Union[str, Path], **kwargs) -> Optional[str]:
     script that provides functionality for manipulating files within a storage system.
     """
     file_path = validate_path(file_path)
+    keyword: str = kwargs.get('keyword', "mofreitas")
+    file_path = get_path_after_keyword(file_path, keyword)
     folder_id = find_folder(file_path.parent, **kwargs)
     if folder_id is None:
         logger.error(f"No folder found for path {file_path.parent}")

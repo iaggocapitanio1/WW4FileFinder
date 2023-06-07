@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 NUM_WORKER_THREADS = int(os.environ.get("NUM_WORKER_THREADS", 4))
 
-PATH_REFERENCE = "mofreitas/clientes/"
+PATH_REFERENCE = os.environ.get("PATH_REFERENCE", "mofreitas/clientes/")
 
 CLIENT_ID = os.environ.get("CLIENT_ID", "")
 
@@ -18,7 +18,7 @@ TOKEN_URL = os.environ.get("TOKEN_URL", "http://localhost:8000/auth/token")
 
 URL = os.environ.get("URL", "http://127.0.0.1:8000/api/v1")
 
-WATCHING_DIR = os.environ.get("WATCHING_DIR", BASE_DIR / './clientes')
+WATCHING_DIR = os.environ.get("WATCHING_DIR", BASE_DIR / '/home/app/media/public/mofreitas')
 
 WATCHING_DIR = Path(WATCHING_DIR).resolve()
 
@@ -79,6 +79,14 @@ LOGGER = {
             "propagate": True
         },
         "utilities.files": {
+            "level": "DEBUG",
+            "handlers": [
+                "console",
+                "file"
+            ],
+            "propagate": True
+        },
+        "utilities.task": {
             "level": "DEBUG",
             "handlers": [
                 "console",

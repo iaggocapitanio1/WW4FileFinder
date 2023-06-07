@@ -1,0 +1,19 @@
+version: "3.9"
+# iaggo/file-watcher
+services:
+    watcher:
+        hostname: watcher
+        build: .
+        restart: always
+        tty: true
+        volumes:
+            - ./media/public/mofreitas:/home/app/media/public/mofreitas
+            - ./logs:/home/app/logs
+        environment:
+            - CLIENT_ID=u2alUkVKozoradnFfMR2whNKOZytxaxu1tlgmX5x
+            - CLIENT_SECRET=aGyGjhSKEMpXMbJicsNdCGV6SLFeDhmMVoj4eMhPm5xH4Dmli5gPO0gA2x8imrgv5gDpwhs4GPlZyR6LCmwbDIaCOSjVX86dJyb6ntKCU5Yr8jqlUF2FN06rSdvtOwXI
+            - TOKEN_URL=http://localhost:8000/auth/token
+            - WATCHING_DIR=/home/app/media/public/mofreitas
+            - URL=http://127.0.0.1:8000/api/v1
+        networks:
+            - default

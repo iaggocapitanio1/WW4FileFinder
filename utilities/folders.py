@@ -178,6 +178,13 @@ def update_folder(folder_targe_new_parent_pk: Optional[str], folder_target_old_p
     return False
 
 
+def get_diverge_folder_path(old_path: Path, new_path: str) -> Path:
+    common_path = os.path.commonpath([old_path, new_path])
+    diverging_folder_name = Path(os.path.relpath(new_path, common_path)).parts[0]
+    diverging_folder_path = os.path.join(common_path, diverging_folder_name)
+    return Path(diverging_folder_path)
+
+
 # noinspection PyUnresolvedReferences
 @validate_on_folder_input
 def on_folder_updated(src_path: Union[str, Path], dest_path: Union[str, Path], keyword: str = "mofreitas") -> bool:
@@ -206,26 +213,29 @@ def on_folder_updated(src_path: Union[str, Path], dest_path: Union[str, Path], k
 
     # If parent does not exist or the folder itself does not exist, create the folder(s)
     if old_parent_path_and_id is None or not folder_already_exists(old_path):
+        if Path(settings.PATH_REFERENCE).joinpath(email) == old_path.parent and new_parent_path_and_id is not None:
+            success: bool = update_folder(folder_targe_new_parent_pk=new_parent_path_and_id[1],
+                                          folder_target_old_path=old_path.__str__())
+            if success:
+                logger.error(f"As the directory has been moved and the old path is not valid the system "
+                             f"will try to delete the folder '{old_path.name}'")
+                delete_folder(old_path)
+                return True
+            else:
+                logger.error(f"Fail to update the folder '{error}'.")
+                return False
         success = on_folder_created(src_path=old_path)
         if not success:
             logger.error(f"It's impossible to sync folder '{new_parent_path_and_id[0].name}'")
-            return False
-
         return on_folder_updated(src_path=old_path, dest_path=new_path)
 
     if new_parent_path_and_id is None or not folder_already_exists(new_parent_path_and_id[0]):
         on_folder_created(src_path=new_parent_path_and_id[0])
         return on_folder_updated(src_path=old_path, dest_path=new_path)
 
-    # Check if the parent path folder has changed
-    # Check if the folder name has changed
-
     try:
         if os.path.commonpath([old_path, new_path]) != new_path.parent.__str__():
-            # Find the point of divergence
             diverging_folder = Path(os.path.relpath(new_path, os.path.commonpath([old_path, new_path]))).parts[0]
-            old_path_diverging_folder = Path(*old_path.parts[:old_path.parts.index('Premier bâtiment 2') + 1]).__str__()
-            # Find the new parent folder and its id
             new_parent_path_and_id = find_parent_folder(path=Path(os.path.join(new_path.parent, diverging_folder)),
                                                         keyword=keyword, email=email)
             if new_parent_path_and_id is None or not folder_already_exists(new_parent_path_and_id[0]):
@@ -235,7 +245,7 @@ def on_folder_updated(src_path: Union[str, Path], dest_path: Union[str, Path], k
                     return False
                 return on_folder_updated(src_path=old_path, dest_path=new_path)
             return update_folder(folder_targe_new_parent_pk=new_parent_path_and_id[1],
-                                 folder_target_old_path=old_path_diverging_folder)
+                                 folder_target_old_path=old_path.__str__())
         else:
             name_changed = old_path.name != new_path.name
             logger.info(f"name_changed: '{name_changed}'.")
@@ -280,7 +290,8 @@ def on_folder_created(src_path: Union[str, Path], keyword: str = "mofreitas") ->
             logger.info(f"Successfully created the folder '{name}'.")
             return on_folder_created(src_path, keyword)
         else:
-            logger.error(f"Error encountered while attempting to create the folder '{name}'. {resp.text}")
+            logger.error(f"Error encountered while attempting to create the folder"
+                         f" '{name}'. {f'CONTENT: {resp.content}' if len(resp.content) < 500 else f'OK: {resp.ok}'}")
             return False
 
         # Create list of paths starting from parent to child
