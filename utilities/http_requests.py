@@ -8,7 +8,6 @@ from requests import Response
 import settings
 from client import oauth
 
-logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
 
 session = requests.Session()

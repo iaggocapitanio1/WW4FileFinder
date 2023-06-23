@@ -2,25 +2,70 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def str_to_bool(target) -> bool:
+    if isinstance(target, bool):
+        return target
+    return target.lower() == 'true'
+
+
+def mega_bytes_to_bits(mega: int) -> int:
+    return mega * 1024 * 1024
+
+
+NAMESPACE = 'FILE_FINDER'
+
+if not NAMESPACE.endswith('_'):
+    NAMESPACE += '_'
+
+
+def parse_env(string: str) -> str:
+    return NAMESPACE + string
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
-NUM_WORKER_THREADS = int(os.environ.get("NUM_WORKER_THREADS", 4))
+PRODUCTION = True
 
-PATH_REFERENCE = os.environ.get("PATH_REFERENCE", "mofreitas/clientes/")
+DOT_ENV_PATH = BASE_DIR / '.dev.env' if not PRODUCTION else None
 
-CLIENT_ID = os.environ.get("CLIENT_ID", "")
+load_dotenv(DOT_ENV_PATH)
 
-CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "")
+NUM_WORKER_THREADS = int(os.environ.get(parse_env("NUM_WORKER_THREADS"), 4))
 
-TOKEN_URL = os.environ.get("TOKEN_URL", "http://localhost:8000/auth/token")
+DELAY_FOR_SCAN = int(os.environ.get(parse_env("DELAY_FOR_SCAN"), 20))
 
-URL = os.environ.get("URL", "http://127.0.0.1:8000/api/v1")
+SLEEP_DURATION = int(os.environ.get(parse_env("DELAY_FOR_SCAN"), 0.5))
 
-WATCHING_DIR = os.environ.get("WATCHING_DIR", BASE_DIR / '/home/app/media/public/mofreitas')
+KEY_PATH = os.environ.get(parse_env("KEY_WORD"), "mofreitas")
+
+PATH_REFERENCE = os.environ.get(parse_env("PATH_REFERENCE"), "mofreitas/clientes/")
+
+CLIENT_ID = os.environ.get(parse_env("CLIENT_ID"), "")
+
+logger.info(f"CLIENT_ID: {CLIENT_ID}")
+
+CLIENT_SECRET = os.environ.get(parse_env("CLIENT_SECRET"), "")
+
+logger.info(f"CLIENT_SECRET: {CLIENT_SECRET}")
+
+TOKEN_URL = os.environ.get(parse_env("TOKEN_URL"), "http://localhost:8000/auth/token")
+
+logger.info(f"TOKEN_URL: {TOKEN_URL}")
+
+URL = os.environ.get(parse_env("URL"), "http://127.0.0.1:8000/api/v1")
+
+WATCHING_DIR = os.environ.get(parse_env("WATCHING_DIR"), BASE_DIR / '/home/app/media/public/mofreitas')
 
 WATCHING_DIR = Path(WATCHING_DIR).resolve()
+
+LOG_DIR = BASE_DIR.joinpath('logs')
+
+LOG_DIR.mkdir(exist_ok=True, mode=0o777)
 
 LOGGER = {
     "version": 1,
@@ -38,7 +83,7 @@ LOGGER = {
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "logs/watchdog.log",
+            "filename": LOG_DIR.joinpath('file_finder.log'),
             "level": "DEBUG",
             "maxBytes": 1048574,
             "backupCount": 3,
@@ -46,68 +91,15 @@ LOGGER = {
         }
     },
     "loggers": {
-        "client": {
+        category: {
             "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
-            "propagate": True
-        },
-        "utilities.query": {
-            "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
-            "propagate": True
-        },
-        "utilities.functions": {
-            "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
-            "propagate": True
-        },
-        "utilities.folders": {
-            "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
-            "propagate": True
-        },
-        "utilities.files": {
-            "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
-            "propagate": True
-        },
-        "utilities.task": {
-            "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
-            "propagate": True
-        },
-        "__main__": {
-            "level": "DEBUG",
-            "handlers": [
-                "console",
-                "file"
-            ],
+            "handlers": ["console", "file"],
             "propagate": True
         }
+        for category in ["client", "utilities", "__main__"]
     },
     "root": {
         "level": "DEBUG",
-        "handlers": [
-            "console",
-            "file"
-        ],
+        "handlers": ["console", "file"],
     }
 }

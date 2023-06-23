@@ -1,14 +1,14 @@
 import logging.config
 import os.path
 
-import settings
+from watchdog.events import FileSystemEvent
+
 from utilities import folders, files
 
-logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
 
 
-def process_event(event_type, event):
+def process_event(event: FileSystemEvent, event_type: str):
     if event_type == 'created':
         logger.info(f"Event 'created' triggered for {'folder' if event.is_directory else 'file'}: {event.src_path}")
         if event.is_directory:

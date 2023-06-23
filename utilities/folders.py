@@ -10,7 +10,7 @@ from requests import Response
 import settings
 from utilities.decorators import validate_on_folder_input
 from utilities.funtions import get_path_after_keyword, validate_path, get_email, get_budget_name
-from utilities.query import post, patch, delete, get
+from utilities.http_requests import post, patch, delete, get
 
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)

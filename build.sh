@@ -1,4 +1,4 @@
-export VERSION=1.0.0
+export VERSION=1.1.0
 export PROJECT="file-watcher"
 export USERNAME="iaggo"
 export REPOSITORY="file-watcher"

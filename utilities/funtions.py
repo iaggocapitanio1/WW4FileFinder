@@ -1,10 +1,8 @@
-from pathlib import Path
-from typing import Union, Optional
 import logging.config
 import re
-import settings
+from pathlib import Path
+from typing import Union, Optional
 
-logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +35,17 @@ def get_budget_name(path: Union[str, Path], keyword: str = "clientes") -> str:
 
 
 def verify(source_path: Path, reference: str = 'Lists_and_Tags') -> bool:
+    """
+        Verifies if the given source_path contains the specified reference directory
+        and that the source_path is a file located under the reference directory.
+
+        Parameters:
+        - source_path (Path): The path of the file to be verified.
+        - reference (str): The reference directory to check if source_path is under. Default is 'Lists_and_Tags'.
+
+        Returns:
+        - bool: True if source_path is a file and is under the reference directory, False otherwise.
+        """
     if source_path.is_dir():
         return False
     if reference not in source_path.parts:

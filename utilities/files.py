@@ -10,7 +10,7 @@ from requests import Response
 import settings
 from utilities.folders import find_folder
 from utilities.funtions import get_path_after_keyword, validate_path
-from utilities.query import post, delete, get, session, ends_with_slash, normalize_relative_url
+from utilities.http_requests import post, delete, get, session, ends_with_slash, normalize_relative_url
 
 logging.config.dictConfig(settings.LOGGER)
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ def create_file(file_path: Path, keyword: str = "mofreitas" ) -> bool:
                 logging.error(
                     f"Failed to upload file {file_path.name} to the folder with ID {folder_pk}. "
                     f"Server responded with status code: {res.status_code}")
+                logger.error(res.text)
                 return False
     except Exception as error:
         logger.error(error)
