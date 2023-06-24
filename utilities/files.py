@@ -8,7 +8,7 @@ import requests
 from requests import Response
 
 import settings
-from utilities.folders import find_folder
+from utilities.folders import find_folder, on_folder_created
 from utilities.funtions import get_path_after_keyword, validate_path
 from utilities.http_requests import post, delete, get, session, ends_with_slash, normalize_relative_url
 
@@ -23,7 +23,9 @@ def create_file(file_path: Path, keyword: str = "mofreitas" ) -> bool:
         folder_pk = find_folder(file_path.parent)
         if not folder_pk:
             logger.error(f"Folder not found! pk = '{folder_pk}'")
-            return False
+            # add this line to create the folder, syncthing issue
+            on_folder_created(file_path.parent)
+            return create_file(file_path)
         if not file_path.is_file():
             logging.error(f"The path {file_path} does not point to a file.")
             return False

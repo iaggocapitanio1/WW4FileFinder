@@ -42,7 +42,8 @@ class EventHandler(FileSystemEventHandler):
                 Returns:
                 - bool: True if source_path is a file and is under the reference directory, False otherwise.
                 """
-        if path.__str__().endswith('tmp') or path.__str__().startswith('syncthing'):
+        string_path: str = path.__str__()
+        if string_path.endswith('tmp') or string_path.startswith('syncthing'):
             return False
         path = validate_path(path)
         if path.is_dir():
@@ -57,7 +58,6 @@ class EventHandler(FileSystemEventHandler):
         return False
 
     def add_to_event_queue(self, event: FileSystemEvent, event_type: str):
-        logger.info(f"Adding to queue for processing.")
         self.event_queue.put((event, event_type))
 
     def add_to_dir_queue(self, path: Path):
@@ -67,10 +67,10 @@ class EventHandler(FileSystemEventHandler):
             self.directories_in_queue.add(path)
             self.delayed_scan_queue.put(path)
 
-    def add_to_queue(self, event: FileSystemEvent, event_type: str):
+    def add_to_queue(self, event: FileSystemEvent, event_type: str) -> None:
         file_path: Path = self.parse_path(event.src_path)
         dir_path = file_path.parent
-        if self.is_valid_path(event.src_path):
+        if self.is_valid_path(file_path):
             logger.info(f"'{event_type.upper()}' event triggered for 'file': {event.src_path}")
             self.add_to_dir_queue(dir_path)
             if self.process_and_scan:
@@ -94,4 +94,5 @@ class EventHandler(FileSystemEventHandler):
                 path = Path(os.path.join(root, file))
                 logger.info(f"Found file: ... {path.parent}/{path.name}")
                 event = FileCreatedEvent(path)
-                self.add_to_event_queue(event,  event_type=event.event_type)
+                if not path.__str__().endswith('tmp') and not path.__str__().startswith('syncthing'):
+                    self.add_to_event_queue(event, event_type=event.event_type)

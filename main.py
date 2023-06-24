@@ -30,7 +30,7 @@ def worker():
         event_tuple: Tuple[FileSystemEvent, str] = event_queue.get()
         if event_tuple is sentinel:
             break
-        event, event_type= event_tuple
+        event, event_type = event_tuple
         task.process_event(event, event_type)
 
 
