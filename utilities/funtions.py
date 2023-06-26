@@ -14,7 +14,6 @@ def validate_path(path: Union[str, Path]) -> Path:
 
 def get_path_after_keyword(path: Union[str, Path], keyword: str = "mofreitas") -> Optional[Path]:
     try:
-        logger.info(f"Trying to get reference path after keyword {keyword}: {path}")
         path = validate_path(path)
         path = Path(*path.parts[path.parts.index(keyword):])
         logger.info(f"Extracted the Path: {path}")

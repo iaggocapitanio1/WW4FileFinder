@@ -50,8 +50,8 @@ def create_file(file_path: Path, keyword: str = "mofreitas" ) -> bool:
 
 
 def patch_file(src_path: Path, dest_path: Path, **kwargs) -> bool:
+    logger.info(f"Pathing file: {src_path}")
     if not dest_path.is_file():
-        logger.error(f"Can not find a folder! Uses instead {find_folder.__name__}´.")
         return False
     try:
         pk = find_file(file_path=src_path)
@@ -75,6 +75,7 @@ def patch_file(src_path: Path, dest_path: Path, **kwargs) -> bool:
 
 
 def delete_file(path: Path) -> bool:
+    logger.info(f"Deleting file: {path.name}")
     file_pk = find_file(path)
     if not file_pk:
         logger.error(f"Unable to find file '{path.name}' with pk '{file_pk}'."

@@ -6,7 +6,7 @@ from queue import Queue
 from typing import Union
 
 from utilities.funtions import validate_path
-from watchdog.events import FileCreatedEvent, FileSystemEvent
+from watchdog.events import FileSystemEvent, FileModifiedEvent
 from watchdog.events import FileSystemEventHandler
 
 import settings
@@ -89,10 +89,13 @@ class EventHandler(FileSystemEventHandler):
         self.add_to_queue(event, 'deleted')
 
     def scan_directory(self, directory):
+        logger.info(f"Scanning directory: {directory}")
         for root, dirs, files in os.walk(directory):
             for file in files:
                 path = Path(os.path.join(root, file))
                 logger.info(f"Found file: ... {path.parent}/{path.name}")
-                event = FileCreatedEvent(path)
+                event = FileModifiedEvent(path)
+                if event.event_type == 'deleted':
+                    continue
                 if not path.__str__().endswith('tmp') and not path.__str__().startswith('syncthing'):
                     self.add_to_event_queue(event, event_type=event.event_type)
