@@ -6,7 +6,7 @@ from queue import Queue
 from typing import Union
 
 from utilities.funtions import validate_path
-from watchdog.events import FileSystemEvent, FileModifiedEvent
+from watchdog.events import FileSystemEvent, FileModifiedEvent, FileCreatedEvent
 from watchdog.events import FileSystemEventHandler
 
 import settings
